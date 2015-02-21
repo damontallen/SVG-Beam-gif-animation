@@ -1,0 +1,11 @@
+# Backups #
+###########
+Old/
+*.*~
+# Checkpoints #
+###############
+.ipynb_checkpoints/
+# Image files #
+###############
+*.svg
+*.sifz
