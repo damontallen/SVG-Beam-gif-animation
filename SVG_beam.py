@@ -14,19 +14,20 @@ class beam(object):
         self.R_CL = point(300,10) # These should be renamed, (they are not center lines)
         self._sag = 0
         self.thickness = 30
-        t = self._t
-        top = Spline(self.L_CL.List(),self.R_CL.List(),self.sag)
+        off = self._t/2
+        self.centerline = Spline(self.L_CL.List(),self.R_CL.List(),self.sag)
+        top = Spline(self.L_CL.offset_y(-off).List(),self.R_CL.offset_y(-off).List(),self.sag)
         top.circles=False
         self.top = [top]
-        bottom = Spline(self.L_CL.offset_y(t).List(),self.R_CL.offset_y(t).List(), self.sag)
+        bottom = Spline(self.L_CL.offset_y(off).List(),self.R_CL.offset_y(off).List(), self.sag)
         bottom.circles=False
         self.bottom = [bottom]
         self.line_width=1
 #         End = namedtuple("End",")
-        Left = Line(self.L_CL,self.L_CL.offset_y(t))
+        Left = Line(self.L_CL.offset_y(-off),self.L_CL.offset_y(off))
         Left.width = 1
         self.L_end_orig = [Left] # Need to make Line object
-        Right = Line(self.R_CL,self.R_CL.offset_y(t))
+        Right = Line(self.R_CL.offset_y(-off),self.R_CL.offset_y(off))
         Right.width = 1
         self.R_end_orig = [Right] # Need to make Line object
         self.L_end = self.L_end_orig.copy()
@@ -46,7 +47,7 @@ class beam(object):
     def line_width(self, val):
         for top in self.top:
             top.width = str(val)
-        for bottom in self.bottom
+        for bottom in self.bottom:
             bottom.width = str(val)
         self._line_width = val
     
@@ -56,19 +57,25 @@ class beam(object):
     @thickness.setter
     def thickness(self,val):
         self._t = val
-        
+    
+    def _set_poly_origin(self,poly_list,end_point):
+        x, y = end_point
+        poly_list[0].origin = [x,y]
+    
+    def _set_poly_end(self,poly_list,end_point):
+        x, y = end_point
+        poly_list[-1].end = [x,y]
+    
     @property
     def sag(self):
         return self._sag
     @sag.setter
     def sag(self,val):
+        self.centerline.sag = val
+        angs = self.centerline.end_angles(suppress=True)
         if len(self.top)==1:
             self.top[0].sag = val
-            angs = self.top.end_angles(suppress=True)
         else:
-            angs_0 = self.top[0].end_angles(suppress=True)
-            angs_1 = self.top[-1].end_angles(suppress=True)
-            angs = [angs_0[0],angs_1[1]] # I am assuming these are ordered this way (Feb 21, 2015)
             er="not implemented!!!!!!"
             raise(RuntimeError(er))
         if len(self.bottom)==1:
@@ -96,13 +103,8 @@ class beam(object):
                 new_Line.width = self.line_width
                 L_end.append(new_Line)
             self.L_end = L_end
-        bot = self.L_end[-1]
-        bx0,by0 = bot.p1.List()
-        if len(self.bottom)==1:
-            self.bottom.origin = [bx0,by0]
-        else:
-            er="not implemented!!!!!!"
-            raise(RuntimeError(er))
+        self._set_poly_origin(self.bottom,self.L_end[-1].p1.List())
+        self._set_poly_origin(self.top,self.L_end[0].p0.List())
         
         x0_base,y0_base = self.R_CL.List()
         #Right_bottom = rotate([self._t,y0_base],base=[x0_base,y0_base],angle=angs.theta_2+pi/4)
@@ -123,13 +125,9 @@ class beam(object):
                 new_Line.width = self.line_width
                 R_end.append(new_Line)
             self.R_end = R_end
-        bot = self.R_end[-1]
-        bx0,by0 = bot.p1.List()
-        if len(self.bottom)==1:
-            self.bottom.end = [bx0,by0]
-        else:
-            er="not implemented!!!!!!"
-            raise(RuntimeError(er))
+        self._set_poly_end(self.bottom,self.R_end[-1].p1.List())
+        self._set_poly_end(self.top,self.R_end[0].p0.List())
+        
         
     def mirror_end(self, source='left'):
         source = source.lower().strip()
@@ -171,12 +169,12 @@ class beam(object):
     def _repr_svg_(self):
         #txt = "<svg>\n"
         if len(self.top)==1:
-            Top = self.top._points_of_intrest()
+            Top = self.top[0]._points_of_intrest()
         else:
             er="not implemented!!!!!!"
             raise(RuntimeError(er))
         if len(self.bottom)==1:
-            Bot = self.bottom._points_of_intrest()
+            Bot = self.bottom[0]._points_of_intrest()
         else:
             er="not implemented!!!!!!"
             raise(RuntimeError(er))
