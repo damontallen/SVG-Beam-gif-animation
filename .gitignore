@@ -9,3 +9,6 @@ Old/
 ###############
 *.svg
 *.sifz
+# Cache files #
+###############
+__pycache__/
