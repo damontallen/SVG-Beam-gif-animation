@@ -1,7 +1,3 @@
-# Path CurveManip.py
-
-
-
 from IPython.display import SVG
 from numpy import matrix
 from numpy.linalg import inv
@@ -187,8 +183,10 @@ class Spline(object):
             print("t0 = {}, t2 = {}, angle = {}".format(np.degrees(t0),
                                                         np.degrees(t2),
                                                         angle))
-        Angles = namedtuple("Angles","theta_0 theta_2 angle")
-        angles = Angles(t0,t2,angle)
+        Coefficents = namedtuple("Coefficents","a b c")
+        coefficents = Coefficents(a,b,c)
+        Angles = namedtuple("Angles","theta_0 theta_2 angle coefficents")
+        angles = Angles(t0,t2,angle,coefficents)
         return angles
         
     def _points_of_intrest(self):
