@@ -11,7 +11,7 @@ class beam(object):
     "For displaying a beam failure"
     def __init__(self):
         self.L_CL = point(10,10)  # These should be renamed, (they are not center lines)
-        self.R_CL = point(300,10) # These should be renamed, (they are not center lines)
+        self.R_CL = point(310,10) # These should be renamed, (they are not center lines)
         self._sag = 0
         self.thickness = 30
         off = self._t/2
@@ -38,6 +38,7 @@ class beam(object):
 #         self._filename = None
         self._warned = False # for setting the maximum file number in save method
         self.manual_ends = False
+        self.splits = ''
         
     
     @property
@@ -188,9 +189,12 @@ class beam(object):
         height = abs(bottom-top)+10
         txt = '<svg  viewBox = "%f %f %f %f">\n'%(left,top,width,height)
         for top_ in self.top:
-            txt+= top_._svg_path_()+'\n'
+            txt+= top_.svg_path_txt+'\n'
         for bottom_ in self.bottom:
-            txt+= bottom_._svg_path_()+'\n'
+            txt+= bottom_.svg_path_txt+'\n'
+            
+        for split in self.splits: # for displaying all cracks
+            txt+= split.svg_path_txt+'\n'
         
         for line in self.L_end:
             txt+= line.svg_line_txt()+'\n'
