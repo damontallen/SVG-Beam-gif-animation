@@ -1,3 +1,5 @@
+# Added Wikipedia reference and added self.slopes for shear split.
+# Added arb_spline function
 from IPython.display import SVG
 from numpy import matrix
 from numpy.linalg import inv
@@ -6,6 +8,7 @@ from collections import namedtuple
 # from collections import OrderedDict as Dict # Not used yet, intended for beam end lines.
 from numpy import sin, cos, tan, array, pi, abs, arctan, sign
 import numpy as np
+# from SVG_lib import point
 
 def rotate(point, base, angle, DEBUG = False):
     R = matrix(((cos(angle),-sin(angle)),(sin(angle),cos(angle))))
@@ -97,6 +100,55 @@ def unrotate(p0,p1,p2, DEBUG=False):
         print(debug)
         print()
     return(p0,p1_o,p2_o,float(angle))
+
+def arb_spline(X=[0,0,0],Y=[0,0,0],k0=0,k1=0,k2=0,rot_angle=0,
+               fill='none', stroke='black', stroke_width='2'):
+    """Returns the information necessary to draw a spline through three points
+    
+    X is the three x coordinates
+    Y is the three y coordinates
+    k0,k1,k2 are the slopes at the three points
+    rot_angle is the angle that the spline should be rotated after it is drawn
+    fill is the fill color of the curve
+    stroke is the curves color
+    stroke_width is the width of the curve in pixels
+    """
+    x0,x1,x2 = X
+    y0,y1,y2 = Y
+    angle = rot_angle
+    cx0 = x0 + x1/2
+    cy0 = (x2-x0)*float(k0)/2.25
+    cx2 = x2 - x1/2
+    cy2 = (x0-x2)*float(k2)/2.25
+    p0 = [x0,y0]
+    p1 = [x1,y1]
+    p2 = [x2,y2]
+    if angle !=0:
+        p1 = rotate(p1,p0,angle,DEBUG=DEBUG)
+        p2 = rotate(p2,p0,angle,DEBUG=DEBUG)
+        if DEBUG:
+            print('\ncx2,cy2 = {},{}'.format(cx2,cy2))
+        cx0,cy0 = rotate([cx0,cy0],p0,angle,DEBUG=DEBUG)
+        cx0,cy0 = float(cx0),float(cy0)
+        cx2,cy2 = rotate([cx2,cy2],p0,angle,DEBUG=DEBUG)
+        cx2,cy2 = float(cx2),float(cy2)
+    x0,y0 = p0
+    x1,y1 = p1
+    x1,y1 = float(x1),float(y1)
+    x2,y2 = p2
+    x2,y2 = float(x2),float(y2)
+
+    dx = x2-x0
+    dy = y2-y0
+    Coords = namedtuple("Coords", "x0 y0 x1 y1 x2 y2")
+    SVG_values = namedtuple("SVG_values","x0 y0 cx0 cy0 cx2 cy2 dx dy")
+    coords = Coords(x0,y0,x1,y1,x2,y2)
+    svg_values = SVG_values(x0, y0, cx0, cy0, cx2, cy2, dx, dy)
+    style = 'fill:%s;stroke:%s;stroke-width:%spx'%(fill, stroke, stroke_width)
+    svg_txt = '<path style="%s" d="m %f,%f c %f,%f %f,%f %f,%f"/>'%(style,x0,y0,cx0,cy0,cx2,cy2,dx,dy)
+    Results = namedtuple("Results","coords svg_values svg_txt")
+    results = Results(coords, svg_values, svg_txt)
+    return results
 
 ### *** Spline Class *** ###
 
@@ -213,7 +265,12 @@ class Spline(object):
         return points
 
     def _spline(self):
-        "Returns the values for a SVG cubic spline that passes through the three points."
+        """Returns the values for a SVG cubic spline that passes through the three points.
+        
+        This algorithm is based on information found on a Wikipedia page about 
+        Spline Interpolation - http://en.wikipedia.org/wiki/spline_interpolation
+        Last visited on Feb 26, 2015
+        """
         p0, p1, p2, x0, x1, x2, y0, y1, y2, angle = self._points_of_intrest()
         DEBUG = self.DEBUG
         A = 1/(x1-x0)
@@ -226,35 +283,15 @@ class Spline(object):
         a_inv = inv(a)
         k = a_inv * b
         k0, k1, k2 = k
-        cx0 = x0 + x1/2
-        cy0 = (x2-x0)*float(k0)/2.25
-        cx2 = x2 - x1/2
-        cy2 = (x0-x2)*float(k2)/2.25
+        results = self._arb_spline(X=[x0,x1,x2],
+                                   Y=[y0,y1,y2],
+                                   k0=k0,k1=k1,k2=k2,
+                                   rot_angle=angle)
+        self.coords = results.coords
+        self.svg_values = results.svg_values
+        Slopes = namedtuple("Slopes", "k0 k1 k2")
+        self.slopes = Slopes(float(k0), float(k1), float(k2))
         
-        if angle !=0:
-            p1 = rotate(p1,p0,angle,DEBUG=DEBUG)
-            p2 = rotate(p2,p0,angle,DEBUG=DEBUG)
-            if DEBUG:
-                print('\ncx2,cy2 = {},{}'.format(cx2,cy2))
-            cx0,cy0 = rotate([cx0,cy0],p0,angle,DEBUG=DEBUG)
-            cx0,cy0 = float(cx0),float(cy0)
-            cx2,cy2 = rotate([cx2,cy2],p0,angle,DEBUG=DEBUG)
-            cx2,cy2 = float(cx2),float(cy2)
-        if DEBUG:
-            print('cx2,cy2 = {},{}\n'.format(cx2,cy2))
-        x0,y0 = p0
-        x1,y1 = p1
-        x1,y1 = float(x1),float(y1)
-        x2,y2 = p2
-        x2,y2 = float(x2),float(y2)
-
-        dx = x2-x0
-        dy = y2-y0
-
-        Coords = namedtuple("Coords", "x0 y0 x1 y1 x2 y2")
-        SVG_values = namedtuple("SVG_values","x0 y0 cx0 cy0 cx2 cy2 dx dy")
-        self.coords = Coords(x0,y0,x1,y1,x2,y2)
-        self.svg_values = SVG_values(x0, y0, cx0, cy0, cx2, cy2, dx, dy)
     
     def _repr_svg_(self):
         self._spline()
