@@ -1,5 +1,7 @@
-# Added Wikipedia reference and added self.slopes for shear split.
-# Added arb_spline function
+# Path CurveManip.py
+
+
+
 from IPython.display import SVG
 from numpy import matrix
 from numpy.linalg import inv
@@ -116,10 +118,12 @@ def arb_spline(X=[0,0,0],Y=[0,0,0],k0=0,k1=0,k2=0,rot_angle=0,
     x0,x1,x2 = X
     y0,y1,y2 = Y
     angle = rot_angle
+    # Control Points
     cx0 = x0 + x1/2
     cy0 = (x2-x0)*float(k0)/2.25
     cx2 = x2 - x1/2
     cy2 = (x0-x2)*float(k2)/2.25
+    
     p0 = [x0,y0]
     p1 = [x1,y1]
     p2 = [x2,y2]
@@ -146,8 +150,9 @@ def arb_spline(X=[0,0,0],Y=[0,0,0],k0=0,k1=0,k2=0,rot_angle=0,
     svg_values = SVG_values(x0, y0, cx0, cy0, cx2, cy2, dx, dy)
     style = 'fill:%s;stroke:%s;stroke-width:%spx'%(fill, stroke, stroke_width)
     svg_txt = '<path style="%s" d="m %f,%f c %f,%f %f,%f %f,%f"/>'%(style,x0,y0,cx0,cy0,cx2,cy2,dx,dy)
-    Results = namedtuple("Results","coords svg_values svg_txt")
-    results = Results(coords, svg_values, svg_txt)
+    _path_svg_ = lambda: svg_txt
+    Results = namedtuple("Results","coords svg_values _path_svg_")
+    results = Results(coords, svg_values, _path_svg_)
     return results
 
 ### *** Spline Class *** ###
@@ -270,6 +275,8 @@ class Spline(object):
         This algorithm is based on information found on a Wikipedia page about 
         Spline Interpolation - http://en.wikipedia.org/wiki/spline_interpolation
         Last visited on Feb 26, 2015
+        Additional information is available at,
+        http://en.wikipedia.org/wiki/B%3C%A9zier_curve (Bezier Curve)
         """
         p0, p1, p2, x0, x1, x2, y0, y1, y2, angle = self._points_of_intrest()
         DEBUG = self.DEBUG
