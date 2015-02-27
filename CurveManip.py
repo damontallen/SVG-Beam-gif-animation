@@ -149,10 +149,10 @@ def arb_spline(X=[0,0,0],Y=[0,0,0],k0=0,k1=0,k2=0,rot_angle=0,
     coords = Coords(x0,y0,x1,y1,x2,y2)
     svg_values = SVG_values(x0, y0, cx0, cy0, cx2, cy2, dx, dy)
     style = 'fill:%s;stroke:%s;stroke-width:%spx'%(fill, stroke, stroke_width)
-    svg_txt = '<path style="%s" d="m %f,%f c %f,%f %f,%f %f,%f"/>'%(style,x0,y0,cx0,cy0,cx2,cy2,dx,dy)
-    _path_svg_ = lambda: svg_txt
-    Results = namedtuple("Results","coords svg_values _path_svg_")
-    results = Results(coords, svg_values, _path_svg_)
+    svg_path_txt = '<path style="%s" d="m %f,%f c %f,%f %f,%f %f,%f"/>'%(style,x0,y0,cx0,cy0,cx2,cy2,dx,dy)
+    
+    Results = namedtuple("Results","coords svg_values svg_path_txt")
+    results = Results(coords, svg_values, svg_path_txt)
     return results
 
 ### *** Spline Class *** ###
@@ -302,7 +302,7 @@ class Spline(object):
     
     def _repr_svg_(self):
         self._spline()
-        path = self._svg_path_()
+        path = self.svg_path_txt
         x0,y0,x1,y1,x2,y2 = self.coords
         x0, y0, cx0, cy0, cx2, cy2, dx, dy = self.svg_values
         top = min(y0,y1,y2,cy0,cy2)-10
@@ -341,7 +341,8 @@ class Spline(object):
         bounds = Bounds(left,top,width,height)
         return bounds
     
-    def _svg_path_(self):
+    @property
+    def svg_path_txt(self):
         self._spline()
         x0,y0,x1,y1,x2,y2 = self.coords
         x0, y0, cx0, cy0, cx2, cy2, dx, dy = self.svg_values
