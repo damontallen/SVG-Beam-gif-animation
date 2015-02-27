@@ -38,7 +38,7 @@ class beam(object):
 #         self._filename = None
         self._warned = False # for setting the maximum file number in save method
         self.manual_ends = False
-        self.splits = ''
+        self.splits = []
         
     
     @property
