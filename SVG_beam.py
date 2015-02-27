@@ -72,6 +72,7 @@ class beam(object):
         return self._sag
     @sag.setter
     def sag(self,val):
+        self._sag = val
         self.centerline.sag = val
         angs = self.centerline.end_angles(suppress=True)
         if len(self.top)==1:
