@@ -103,8 +103,35 @@ def unrotate(p0,p1,p2, DEBUG=False):
         print()
     return(p0,p1_o,p2_o,float(angle))
 
+def control_points(X,Y,K):
+    k0, k1, k2 = K
+    x0,x1,x2 = X
+    y0,y1,y2 = Y
+    X_M = T(matrix(array([x0,x1,x2,y0,y1,y2,y0,y2])))
+    E = matrix(((1,0,0,0,0,0,0,0),
+                (1/8,3/8,3/8,1/8,0,0,0,0),
+                (0,0,0,1,0,0,0,0),
+                (0,0,0,0,1,0,0,0),
+                (0,0,0,0,1/8,3/8,3/8,1/8),
+                (0,0,0,0,0,0,0,1),
+                (k0,-k0,0,0,0,1,0,0),
+                (0,0,-k2,k2,0,0,1,0)))
+    C = inv(E)*X_M
+    cx0,cx1,cx2,cx3,cy0,cy1,cy2,cy3 = C
+    Coords = namedtuple('Coords','C0 C1 C2 C3')
+    coords = Coords((close_(cx0),close_(cy0)),
+                    (close_(cx1),close_(cy1)),
+                    (close_(cx2),close_(cy2)),
+                    (close_(cx3),close_(cy3)))
+    return coords
+
+def close_(num):
+    num= round(float(num)*10**11)/10**11
+    return num
+
 def arb_spline(X=[0,0,0],Y=[0,0,0],k0=0,k1=0,k2=0,rot_angle=0,
-               fill='none', stroke='black', stroke_width='2'):
+               fill='none', stroke='black', stroke_width='2',
+               DEBUG=False):
     """Returns the information necessary to draw a spline through three points
     
     X is the three x coordinates
@@ -118,11 +145,17 @@ def arb_spline(X=[0,0,0],Y=[0,0,0],k0=0,k1=0,k2=0,rot_angle=0,
     x0,x1,x2 = X
     y0,y1,y2 = Y
     angle = rot_angle
+    K = [k0,k1,k2]
+    CP = control_points(X,Y,K)
+    cx0 = CP.C1[0]
+    cy0 = CP.C1[1]
+    cx2 = CP.C2[0]
+    cy2 = CP.C2[1]
     # Control Points
-    cx0 = x0 + x1/2
-    cy0 = (x2-x0)*float(k0)/2.25
-    cx2 = x2 - x1/2
-    cy2 = (x0-x2)*float(k2)/2.25
+#     cx0 = x0 + x1/2
+#     cy0 = (x2-x0)*float(k0)/2.25
+#     cx2 = x2 - x1/2
+#     cy2 = (x0-x2)*float(k2)/2.25
     
     p0 = [x0,y0]
     p1 = [x1,y1]
@@ -290,10 +323,10 @@ class Spline(object):
         a_inv = inv(a)
         k = a_inv * b
         k0, k1, k2 = k
-        results = self._arb_spline(X=[x0,x1,x2],
-                                   Y=[y0,y1,y2],
-                                   k0=k0,k1=k1,k2=k2,
-                                   rot_angle=angle)
+        results = arb_spline(X=[x0,x1,x2],
+                             Y=[y0,y1,y2],
+                             k0=k0,k1=k1,k2=k2,
+                             rot_angle=angle)
         self.coords = results.coords
         self.svg_values = results.svg_values
         Slopes = namedtuple("Slopes", "k0 k1 k2")
