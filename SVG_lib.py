@@ -1,3 +1,7 @@
+# name: SVG_lib.py
+# type: text/x-python
+# size: 4256 bytes 
+# ---- 
 from collections import OrderedDict as Dict
 
 class point(object):
@@ -19,8 +23,6 @@ class point(object):
     def List(self):
         return [self.x, self.y]
 
-
-
 colors = Dict()
 
 with open('SVG_colors.txt','r') as f:
@@ -40,7 +42,11 @@ with open('SVG_colors.txt','r') as f:
 class Line(object):
     def __init__(self, p0=point(0,0), p1=point(100,100)):
         """p0, and p1 must be passed in as point class memebers or named tuples with x and y"""
+        if type(p0)==list:
+            p0=point(p0[0],p0[1])
         self.p0 = p0
+        if type(p1)==list:
+            p1=point(p1[0],p1[1])
         self.p1 = p1
         self.color = 'black'
         self.width = 1
