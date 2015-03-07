@@ -6,6 +6,9 @@ from collections import OrderedDict as Dict
 
 class point(object):
     def __init__(self, x = 0, y = 0):
+        iterator = {type([]),type(())}
+        if type(x) in iterator and y==0:
+            x,y = x
         self.x = x
         self.y = y
     
