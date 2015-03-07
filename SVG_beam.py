@@ -1,26 +1,25 @@
-# name: SVG_beam.py
-# type: text/x-python
-# size: 4309 bytes 
-# ---- 
 from SVG_lib import point, Line
-from CurveManip import Spline, rotate, mirror
+from CurveManip import rotate, mirror
+from New_Spline import Spline
 import os
 from numpy import ceil, log10
+from Supports import pinned, roller
 
 class beam(object):
     "For displaying a beam failure"
     def __init__(self):
-        self.L_CL = point(10,10)  # These should be renamed, (they are not center lines)
-        self.R_CL = point(310,10) # These should be renamed, (they are not center lines)
+        self.L_CL = point(10,0)  # These should be renamed, (they are not center lines)
+        self.R_CL = point(310,0) # These should be renamed, (they are not center lines)
         self._sag = 0
         self.thickness = 30
         off = self._t/2
-        self.centerline = Spline(self.L_CL.List(),self.R_CL.List(),self.sag)
-        top = Spline(self.L_CL.offset_y(-off).List(),self.R_CL.offset_y(-off).List(),self.sag)
-        top.circles=False
+        self.centerline = Spline(self.L_CL.List(),self.R_CL.List())
+        self.centerline.centerline=True
+        top = Spline(self.L_CL.offset_y(-off).List(),self.R_CL.offset_y(-off).List())
+        # top.circles=False
         self.top = [top]
-        bottom = Spline(self.L_CL.offset_y(off).List(),self.R_CL.offset_y(off).List(), self.sag)
-        bottom.circles=False
+        bottom = Spline(self.L_CL.offset_y(off).List(),self.R_CL.offset_y(off).List())
+        # bottom.circles=False
         self.bottom = [bottom]
         self.line_width=1
 #         End = namedtuple("End",")
@@ -39,6 +38,8 @@ class beam(object):
         self._warned = False # for setting the maximum file number in save method
         self.manual_ends = False
         self.splits = []
+        self.show_center_line = True
+        self.break_line=''
         
     
     @property
@@ -59,13 +60,29 @@ class beam(object):
     def thickness(self,val):
         self._t = val
     
+    @property
+    def display_points(self):
+        return self._display_points
+    @display_points.setter
+    def display_points(self,val):
+        if type(val)!=type(True):
+            raise(ValueError('Must be True or False only!'))
+        self._display_points = val
+        self.centerline.points = val
+        for top in self.top:
+            top.points = val
+        for bottom in self.bottom:
+            bottom.points = val
+        for split in self.splits:
+            split.points = val
+    
     def _set_poly_origin(self,poly_list,end_point):
         x, y = end_point
-        poly_list[0].origin = [x,y]
+        poly_list[0].P0 = [x,y]
     
     def _set_poly_end(self,poly_list,end_point):
         x, y = end_point
-        poly_list[-1].end = [x,y]
+        poly_list[-1].P3 = [x,y]
     
     @property
     def sag(self):
@@ -74,7 +91,46 @@ class beam(object):
     def sag(self,val):
         self._sag = val
         self.centerline.sag = val
-        angs = self.centerline.end_angles(suppress=True)
+        angs = self.centerline.end_angles()
+        x0_base,y0_base = self.centerline.P0
+
+        if not self.manual_ends:
+            L_end =[]
+            for line in self.L_end_orig:
+                x0, y0 = line.p0.List()
+                x0_, y0_ = rotate([x0,y0],base=[x0_base,y0_base],angle=angs.θ_0)
+                x0 = float(x0_)
+                y0 = float(y0_)
+                x1, y1 = line.p1.List()
+                x1_, y1_ = rotate([x1,y1],base=[x0_base,y0_base],angle=angs.θ_0)
+                x1 = float(x1_)
+                y1 = float(y1_)
+                new_Line = Line(point(x0,y0), point(x1,y1))
+                new_Line.width = self.line_width
+                L_end.append(new_Line)
+            self.L_end = L_end
+        self._set_poly_origin(self.bottom,self.L_end[-1].p1.List())
+        self._set_poly_origin(self.top,self.L_end[0].p0.List())
+        
+        x0_base,y0_base = self.R_CL.List()
+        if not self.manual_ends:
+            R_end =[]
+            for line in self.R_end_orig:
+                x0, y0 = line.p0.List()
+                x0_, y0_ = rotate([x0,y0],base=[x0_base,y0_base],angle=angs.θ_1)
+                x0 = float(x0_)
+                y0 = float(y0_)
+                x1, y1 = line.p1.List()
+                x1_, y1_ = rotate([x1,y1],base=[x0_base,y0_base],angle=angs.θ_1)
+                x1 = float(x1_)
+                y1 = float(y1_)
+                new_Line = Line(point(x0,y0), point(x1,y1))
+                new_Line.width = self.line_width
+                R_end.append(new_Line)
+            self.R_end = R_end
+        self._set_poly_end(self.bottom,self.R_end[-1].p1.List())
+        self._set_poly_end(self.top,self.R_end[0].p0.List())
+        
         if len(self.top)==1:
             self.top[0].sag = val
         else:
@@ -86,60 +142,16 @@ class beam(object):
             er="not implemented!!!!!!"
             raise(RuntimeError(er))
         
-        x0_base,y0_base = self.L_CL.List()
-        #Left_bottom = rotate([self._t,y0_base],base=[x0_base,y0_base],angle=angs.theta_0+pi/4)
-        #bx0, by0 = Left_bottom
-        #self.bottom.origin = [float(bx0), float(by0)]
-        if not self.manual_ends:
-            L_end =[]
-            for line in self.L_end_orig:
-                x0, y0 = line.p0.List()
-                x0_, y0_ = rotate([x0,y0],base=[x0_base,y0_base],angle=angs.theta_0)
-                x0 = float(x0_)
-                y0 = float(y0_)
-                x1, y1 = line.p1.List()
-                x1_, y1_ = rotate([x1,y1],base=[x0_base,y0_base],angle=angs.theta_0)
-                x1 = float(x1_)
-                y1 = float(y1_)
-                new_Line = Line(point(x0,y0), point(x1,y1))
-                new_Line.width = self.line_width
-                L_end.append(new_Line)
-            self.L_end = L_end
-        self._set_poly_origin(self.bottom,self.L_end[-1].p1.List())
-        self._set_poly_origin(self.top,self.L_end[0].p0.List())
-        
-        x0_base,y0_base = self.R_CL.List()
-        #Right_bottom = rotate([self._t,y0_base],base=[x0_base,y0_base],angle=angs.theta_2+pi/4)
-        #bx0, by0 = Right_bottom
-        #self.bottom.end = [float(bx0), float(by0)]
-        if not self.manual_ends:
-            R_end =[]
-            for line in self.R_end_orig:
-                x0, y0 = line.p0.List()
-                x0_, y0_ = rotate([x0,y0],base=[x0_base,y0_base],angle=angs.theta_2)
-                x0 = float(x0_)
-                y0 = float(y0_)
-                x1, y1 = line.p1.List()
-                x1_, y1_ = rotate([x1,y1],base=[x0_base,y0_base],angle=angs.theta_2)
-                x1 = float(x1_)
-                y1 = float(y1_)
-                new_Line = Line(point(x0,y0), point(x1,y1))
-                new_Line.width = self.line_width
-                R_end.append(new_Line)
-            self.R_end = R_end
-        self._set_poly_end(self.bottom,self.R_end[-1].p1.List())
-        self._set_poly_end(self.top,self.R_end[0].p0.List())
-        
         
     def mirror_end(self, source='left'):
         source = source.lower().strip()
         if len(self.top)==1:
-            a = self.top._center
+            a = [float(p) for p in np.array(self.top.P1)-np.array(self.top.P0)]
         else:
             er="not implemented!!!!!!"
             raise(RuntimeError(er))
         if len(self.bottom)==1:
-            b = self.bottom._center
+            b = [float(p) for p in np.array(self.bottom.P1)-np.array(self.bottom.P0)]
         else:
             er="not implemented!!!!!!"
             raise(RuntimeError(er))
@@ -166,41 +178,135 @@ class beam(object):
             raise(ValueError(er))
         
     def __repr__(self):
-        pass
+        txt =  'sag = {}\n'.format(self.sag)
+        txt += 'Origin = {}\n'.format(self.L_CL)
+        txt += 'End = {}\n'.format(self.R_CL)
+        txt += 'd = {}\n'.format(self.thickness)
+        return txt
+        
     
-    def _repr_svg_(self):
-        #txt = "<svg>\n"
+    def svg_alt(self):
+        path = ('<path\n'
+                'style="fill:#CF9B42;fill-rule:evenodd;stroke:{};stroke-width:{}px;stroke-'
+                'linecap:square;stroke-linejoin:miter;stroke-opacity:1"\n'
+                'd="M {}"\n'
+                'inkscape:connector-curvature="0" />\n')
+        txt = ''
+        top = self.top[0]
+        C = top.control_points()
+        txt += '{},{} C {},{} {},{} {},{} \n'.format(C.P0[0],
+                                                  C.P0[1],
+                                                  C.P1[0],
+                                                  C.P1[1],
+                                                  C.P2[0],
+                                                  C.P2[1],
+                                                  C.P3[0],
+                                                  C.P3[1])
+        for line in self.R_end:
+            txt+= 'L {},{} '.format(line.p1.x,line.p1.y)+'\n'
+        
+        if len(self.bottom)==1:
+            bot = self.bottom[0]
+            C = bot.control_points()
+            txt += '{},{} C {},{} {},{} {},{} \n'.format(C.P3[0],
+                                                         C.P3[1],
+                                                         C.P2[0],
+                                                         C.P2[1],
+                                                         C.P1[0],
+                                                         C.P1[1],
+                                                         C.P0[0],
+                                                         C.P0[1])
+        else:
+            bot = self.bottom[-1]
+            C = bot.control_points()
+            txt += '{},{} C {},{} {},{} {},{} \n'.format(C.P3[0],
+                                                         C.P3[1],
+                                                         C.P2[0],
+                                                         C.P2[1],
+                                                         C.P1[0],
+                                                         C.P1[1],
+                                                         C.P0[0],
+                                                         C.P0[1])
+            for line in self.break_line:
+                txt+= 'L {},{} '.format(line.p1.x,line.p1.y)+'\n'
+            bot = self.bottom[0]
+            C = bot.control_points()
+            txt += '{},{} C {},{} {},{} {},{} \n'.format(C.P3[0],
+                                                         C.P3[1],
+                                                         C.P2[0],
+                                                         C.P2[1],
+                                                         C.P1[0],
+                                                         C.P1[1],
+                                                         C.P0[0],
+                                                         C.P0[1])
+        for line in self.L_end[::-1]:
+            txt+= 'L {},{} '.format(line.p0.x,line.p0.y)+'\n'
+        path_txt = path.format(top.color,top.width,txt)
         if len(self.top)==1:
-            Top = self.top[0]._points_of_intrest()
+            Top = self.top[0].bounds()
         else:
             er="not implemented!!!!!!"
             raise(RuntimeError(er))
         if len(self.bottom)==1:
-            Bot = self.bottom[0]._points_of_intrest()
+            Bot = self.bottom[0].bounds()
         else:
             er="not implemented!!!!!!"
             raise(RuntimeError(er))
-        # a = ['<svg  viewBox = "%f %f %f %f">'%(left,top,width,height),
-        left = min(Top.x0,Top.x1,Top.x2, Bot.x0,Bot.x1,Bot.x1)-10
-        top = min(Top.y0,Top.y1,Top.y2, Bot.y0,Bot.y1,Bot.y1)-10
-        right = max(Top.x0,Top.x1,Top.x2, Bot.x0,Bot.x1,Bot.x1)+10
-        bottom = max(Top.y0,Top.y1,Top.y2, Bot.y0,Bot.y1,Bot.y1)+10
-        width = abs(right-left)+10
-        # print("top_b.height, bottom_b.height = {}".format((top_b.height, bottom_b.height)))
-        height = abs(bottom-top)+10
+        left = min(Top.left, Bot.left)-10
+        top = min(Top.top, Bot.top)
+        right = max(Top.left+Top.width, Bot.left+Bot.width)+10
+        bottom = max(Top.top+Top.height, Bot.top+Bot.height)+30- self.top[0].sag
+        width = abs(right-left)
+        height = abs(bottom-top)
         txt = '<svg  viewBox = "%f %f %f %f">\n'%(left,top,width,height)
-        for top_ in self.top:
-            txt+= top_.svg_path_txt+'\n'
-        for bottom_ in self.bottom:
-            txt+= bottom_.svg_path_txt+'\n'
-            
+        txt += pinned(self.bottom[-1].P0)
+        txt += roller(self.bottom[0].P3)
+        txt += path_txt
+        
+        if self.show_center_line:
+            txt += self.centerline.svg_txt()   
+        
         for split in self.splits: # for displaying all cracks
-            txt+= split.svg_path_txt+'\n'
+            txt+= split.svg_txt()+'\n'
+        txt += roller(self.bottom[0].P3)
+        txt += pinned(self.bottom[-1].P0)  
+        txt +="</svg>"
+        return txt
+    
+    def _repr_svg_(self):
+        if len(self.top)==1:
+            Top = self.top[0].bounds()
+        else:
+            er="not implemented!!!!!!"
+            raise(RuntimeError(er))
+        if len(self.bottom)==1:
+            Bot = self.bottom[0].bounds()
+        else:
+            er="not implemented!!!!!!"
+            raise(RuntimeError(er))
+        left = min(Top.left, Bot.left)-10
+        top = min(Top.top, Bot.top)
+        right = max(Top.left+Top.width, Bot.left+Bot.width)+10
+        bottom = max(Top.top+Top.height, Bot.top+Bot.height)+30 - self.top[0].sag
+        width = abs(right-left)
+        height = abs(bottom-top)
+        txt = '<svg  viewBox = "%f %f %f %f">\n'%(left,top,width,height)
+        for index,top_ in enumerate(self.top):
+            txt+= top_.svg_txt()+'\n'
+        for index, bottom_ in enumerate(self.bottom):
+            txt+= bottom_.svg_txt()+'\n'
+        if self.show_center_line:
+            txt += self.centerline.svg_txt()   
+        
+        for split in self.splits: # for displaying all cracks
+            txt+= split.svg_txt()+'\n'
         
         for line in self.L_end:
             txt+= line.svg_line_txt()+'\n'
         for line in self.R_end:
             txt+= line.svg_line_txt()+'\n'
+        txt += roller(self.bottom[0].P3)
+        txt += pinned(self.bottom[-1].P0)  
         txt +="</svg>"
         return txt
     
@@ -250,3 +356,4 @@ class beam(object):
             print("Saving first svg drawing to: {}".format(Filename(count)))
         with open(Filename(count),'w') as f:
             f.write(self._repr_svg_())
+

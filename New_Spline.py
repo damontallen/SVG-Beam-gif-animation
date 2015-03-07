@@ -72,7 +72,7 @@ def intercept(P0,P3,coef):
                 y_i = found[0]
                 x_i = X[0]
             except:
-                val = {'m':m,'x_c':x_c,'y_c':y_c,'m_perp':m_perp,'b_perp':b_perp,'y_p':y_p,'roots':roots}
+                val = {'m':m,'x_c':x_c,'y_c':y_c,'m_perp':m_perp,'b_perp':b_perp,'x0':x0,'x3':x3,'roots':roots}
                 er = 'Error! No soluion found. {}'.format(val)
                 raise(RuntimeError(er))
     else:
@@ -122,18 +122,29 @@ class Spline(object):
         EI = self._EI
         w = D*384*EI/(5*L**4)
         return w
+        
+    def Y_(self,x):
+        """Returns the vertical location based on an absolute horizontal location
+        
+        This is done using a curve based on the coefficients and adjusting for 
+        the end point location."""
+        a,b,c,d,e = self.Coefficients()
+        y = a*x**4+b*x**3+c*x**2+d*x+e
+        return y
+    
     
     def Coefficients(self):
         if self.automatic_coef:
+            x0, y0 = self.P0
             EI = self._EI
             w = self._w
             L = self.L
             mod = w/(2*EI)
             a = mod/12
-            b = mod*-L/6
-            c = 0
-            d = mod*L**3/12
-            e = (self.P0[1]+self.P3[1])/2 # 0 if spline starts on the centerline
+            b = mod/3*-(L/2 + x0)
+            c = mod/2*(L*x0+x0**2)
+            d = mod*(L**3/12-L*x0**2/2-x0**3/3)
+            e = mod/6*(-L**3*x0/2+L*x0**3+x0**4/2)+y0  # 0 if spline starts at 0,0
             coef = Coeffecients(a,b,c,d,e)
         else:
             coef = self.coef
