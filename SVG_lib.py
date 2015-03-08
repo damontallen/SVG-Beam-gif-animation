@@ -60,6 +60,9 @@ class Line(object):
         txt += 'style="stroke:%s;'%self.color
         txt += 'stroke-width:%d" />'%self.width
         return txt
+    
+    def svg_txt(self):
+        return self.svg_line_txt()
 
     @property
     def svg(self):

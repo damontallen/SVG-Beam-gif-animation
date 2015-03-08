@@ -4,14 +4,27 @@ from New_Spline import Spline
 import os
 from numpy import ceil, log10
 from Supports import pinned, roller
+from collections import namedtuple
+Corners = namedtuple("Corners","left top width height")
+
+def adjust_viewbox(corners, support_points, deformed_beam):
+    S = support_points
+    bb=deformed_beam
+    alt_S = bb.support_points()
+    dx = alt_S.S0[0] - S.S0[0]
+    dy = alt_S.S0[1] - S.S0[1]
+    X = corners.left + dx
+    Y = corners.top + dy
+    new_corners = Corners(X,Y,corners.width, corners.height)
+    bb.corners = new_corners
 
 class beam(object):
     "For displaying a beam failure"
     def __init__(self):
         self.L_CL = point(10,0)  # These should be renamed, (they are not center lines)
-        self.R_CL = point(310,0) # These should be renamed, (they are not center lines)
+        self.R_CL = point(610,0) # These should be renamed, (they are not center lines)
         self._sag = 0
-        self.thickness = 30
+        self.thickness = 60
         off = self._t/2
         self.centerline = Spline(self.L_CL.List(),self.R_CL.List())
         self.centerline.centerline=True
@@ -40,6 +53,8 @@ class beam(object):
         self.splits = []
         self.show_center_line = True
         self.break_line=''
+        self.standard_support = True
+        self.manual_viewbox = False
         
     
     @property
@@ -242,23 +257,7 @@ class beam(object):
         for line in self.L_end[::-1]:
             txt+= 'L {},{} '.format(line.p0.x,line.p0.y)+'\n'
         path_txt = path.format(top.color,top.width,txt)
-        if len(self.top)==1:
-            Top = self.top[0].bounds()
-        else:
-            er="not implemented!!!!!!"
-            raise(RuntimeError(er))
-        if len(self.bottom)==1:
-            Bot = self.bottom[0].bounds()
-        else:
-            er="not implemented!!!!!!"
-            raise(RuntimeError(er))
-        left = min(Top.left, Bot.left)-10
-        top = min(Top.top, Bot.top)
-        right = max(Top.left+Top.width, Bot.left+Bot.width)+10
-        bottom = max(Top.top+Top.height, Bot.top+Bot.height)+30- self.top[0].sag
-        width = abs(right-left)
-        height = abs(bottom-top)
-        txt = '<svg  viewBox = "%f %f %f %f">\n'%(left,top,width,height)
+        txt = self._view_box()
         txt += pinned(self.bottom[-1].P0)
         txt += roller(self.bottom[0].P3)
         txt += path_txt
@@ -268,12 +267,40 @@ class beam(object):
         
         for split in self.splits: # for displaying all cracks
             txt+= split.svg_txt()+'\n'
-        txt += roller(self.bottom[0].P3)
-        txt += pinned(self.bottom[-1].P0)  
+#         txt += roller(self.bottom[0].P3)
+#         txt += pinned(self.bottom[-1].P0)  
+        txt += self._support_txt() 
         txt +="</svg>"
         return txt
-    
-    def _repr_svg_(self):
+        
+    def support_points(self):
+        if self.standard_support:
+            S0 = self.bottom[-1].P0
+            S3 = self.bottom[0].P3
+        else:
+            cL = self.centerline
+            t = self.thickness
+            P0 = self.bottom[-1].P0
+            P3 = self.bottom[0].P3
+            sag = cL.P0[1] + self.sag + t - P0[1]
+            bot = Spline(P0,P3)
+            bot.sag = sag
+            x0 = cL.P0[0]
+            x3 = cL.P3[0]
+            y = bot.Y_(cL.P0[0])
+            S0 = [x0, y]
+            S3 = [x3, y]
+        Supports = namedtuple("Supports","S0 S3")
+        supports = Supports(S0, S3)
+        return supports
+        
+    def _support_txt(self):
+        S = self.support_points()
+        txt = roller(S.S3)
+        txt += pinned(S.S0)
+        return txt
+        
+    def get_corners(self, suppress=False):
         if len(self.top)==1:
             Top = self.top[0].bounds()
         else:
@@ -284,13 +311,27 @@ class beam(object):
         else:
             er="not implemented!!!!!!"
             raise(RuntimeError(er))
-        left = min(Top.left, Bot.left)-10
+        left = min(Top.left, Bot.left)-30
         top = min(Top.top, Bot.top)
-        right = max(Top.left+Top.width, Bot.left+Bot.width)+10
-        bottom = max(Top.top+Top.height, Bot.top+Bot.height)+30 - self.top[0].sag
+        right = max(Top.left+Top.width, Bot.left+Bot.width)+30
+        bottom = max(Top.top+Top.height, Bot.top+Bot.height)+60 - self.top[0].sag
         width = abs(right-left)
         height = abs(bottom-top)
+        self.corners = Corners(left,top,width,height)
+        if not suppress:
+            return self.corners
+        
+    def _view_box(self):
+        if not self.manual_viewbox:
+            self.get_corners(True)
+        left,top,width,height = self.corners
         txt = '<svg  viewBox = "%f %f %f %f">\n'%(left,top,width,height)
+        txt += ('<rect x="%f" y="%f" width="%f" height="%f" '
+                'style="fill:#F2F2F2;fill-opacity:1;"/>\n'%(left,top,width,height))
+        return txt
+    
+    def _repr_svg_(self):
+        txt = self._view_box()
         for index,top_ in enumerate(self.top):
             txt+= top_.svg_txt()+'\n'
         for index, bottom_ in enumerate(self.bottom):
@@ -305,8 +346,9 @@ class beam(object):
             txt+= line.svg_line_txt()+'\n'
         for line in self.R_end:
             txt+= line.svg_line_txt()+'\n'
-        txt += roller(self.bottom[0].P3)
-        txt += pinned(self.bottom[-1].P0)  
+#         txt += roller(self.bottom[0].P3)
+#         txt += pinned(self.bottom[-1].P0) 
+        txt += self._support_txt()
         txt +="</svg>"
         return txt
     
@@ -355,5 +397,5 @@ class beam(object):
         if count == 0:
             print("Saving first svg drawing to: {}".format(Filename(count)))
         with open(Filename(count),'w') as f:
-            f.write(self._repr_svg_())
+            f.write(self.svg_alt())
 

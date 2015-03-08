@@ -27,7 +27,7 @@ def pinned(P):
     <line x1="{}" y1="{}" x2="{}" y2="{}" style="stroke:black;stroke-width:1" />
     """
     peak = Point(P)
-    side = 20
+    side = 40
     dh = side * np.cos(np.deg2rad(30))
     bR = peak.translate(side/2,dh)
     bL = bR.translate(-side,0)
@@ -37,7 +37,7 @@ def pinned(P):
     step = side/5
     for i in range(6):
         gT.append(g)
-        gB.append(g.translate(-10,10))
+        gB.append(g.translate(-20,20))
         g = g.translate(step,0)
     gnd = []
     for t,b in zip(gT,gB):
@@ -47,8 +47,8 @@ def pinned(P):
 
 def roller(P):
     roller = """<path d = "M {},{} L {},{} {},{}"/>
-    <circle cx="{}" cy="{}" r="4" stroke="black" stroke-width="1" fill="none" />
-    <circle cx="{}" cy="{}" r="4" stroke="black" stroke-width="1" fill="none" />
+    <circle cx="{}" cy="{}" r="8" stroke="black" stroke-width="1" fill="none" />
+    <circle cx="{}" cy="{}" r="8" stroke="black" stroke-width="1" fill="none" />
     <line x1="{}" y1="{}" x2="{}" y2="{}" style="stroke:black;stroke-width:1" />
     <line x1="{}" y1="{}" x2="{}" y2="{}" style="stroke:black;stroke-width:1" />
     <line x1="{}" y1="{}" x2="{}" y2="{}" style="stroke:black;stroke-width:1" />
@@ -59,21 +59,21 @@ def roller(P):
     """
 
     peak = Point(P)
-    side = 20
+    side = 40
     dh = side * np.cos(np.deg2rad(30))
     bR = peak.translate(side/2,dh)
     bL = bR.translate(-side,0)
     gT = []
     gB = []
-    cL = bL.translate(4,4)
-    cR = bR.translate(-4,4)
-    eL = cL.translate(-4,4)
+    cL = bL.translate(8,8)
+    cR = bR.translate(-8,8)
+    eL = cL.translate(-8,8)
     eR = eL.translate(side,0)
     g = eL
     step = side/5
     for i in range(6):
         gT.append(g)
-        gB.append(g.translate(-10,10))
+        gB.append(g.translate(-20,20))
         g = g.translate(step,0)
     gnd = []
     for t,b in zip(gT,gB):
