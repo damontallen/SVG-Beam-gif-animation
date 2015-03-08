@@ -12,3 +12,6 @@ Old/
 # Cache files #
 ###############
 __pycache__/
+# Intermediate png files #
+##########################
+*/png/*.png
